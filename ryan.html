@@ -270,6 +270,7 @@ footer{color:var(--muted);font-size:.85rem;text-align:center;display:grid;gap:4p
       <span class="fb ok" id="sumFb"></span>
     </div>
     <p class="zh" style="font-size:.85rem">Send to: <span class="mono" style="user-select:all">naphia@cosmicspeech.com.au</span></p>
+    <p class="zh" style="font-size:.85rem" id="weeklyStatus"></p>
   </section>
 
   <footer>
@@ -635,6 +636,78 @@ $("#sumCopy").addEventListener("click",()=>{
 });
 $("#sumMail").addEventListener("click",()=>{renderSummary();$("#sumFb").textContent="If no email opened, press Copy results."});
 renderSummary();
+
+/* ---------- automatic weekly report (Web3Forms) ---------- */
+const W3F_KEY="cc0d21ce-4a27-4858-8a12-202863548a12";
+const WEEK=7*24*3600*1000;
+const SENT_KEY=KEY+".weeklySent";
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function weeklyText(){
+  const name=cName.value.trim()||"(name not entered)";
+  const out=[`WEEKLY REPORT – Ryan's Speech Home Program`,`Name entered: ${name}`,`Sent automatically: ${new Date().toLocaleString("en-AU")}`,`Days in a row: ${streak()}`,""];
+  out.push("PRACTICE RECORD – LAST 14 DAYS");
+  let daysWeek=0;
+  for(let i=13;i>=0;i--){const dt=new Date();dt.setDate(dt.getDate()-i);const v=store.days[dkey(dt)];
+    if(i<7&&active(v))daysWeek++;
+    const lbl=dt.toLocaleDateString("en-AU",{weekday:"short",day:"numeric",month:"short"}).padEnd(14);
+    if(!active(v))out.push(`  ${lbl} —  no practice`);
+    else{const mins=v.first&&v.last?Math.max(1,Math.round((v.last-v.first)/60000)):null;
+      out.push(`  ${lbl} ✓  ${goalsMet(v)}/4 goals · EN ${v.en} · ZH ${v.zh} · Say ${v.say} · Build ${v.build}${mins?` · ~${mins} min`:""}`)}}
+  out.push("",`Practised ${daysWeek} of the last 7 days.`,"");
+  const rounds=[],said=[],build=[];
+  for(let i=6;i>=0;i--){const dt=new Date();dt.setDate(dt.getDate()-i);const L=store.log[dkey(dt)];if(!L)continue;
+    const dl=dt.toLocaleDateString("en-AU",{weekday:"short",day:"numeric"});
+    L.rounds.forEach(r=>rounds.push(Object.assign({dl},r)));L.said.forEach(x=>{if(!said.includes(x))said.push(x)});L.build.forEach(b=>build.push(b))}
+  for(const [k,title] of [["en","LISTENING – ENGLISH s/sh (last 7 days)"],["zh","LISTENING – MANDARIN s/sh (last 7 days)"]]){
+    const R=rounds.filter(r=>r.st===k);out.push(title);
+    if(!R.length){out.push("  No full rounds.","");continue}
+    const tot=R.reduce((a,r)=>a+r.score,0),of=R.reduce((a,r)=>a+r.of,0);
+    out.push(`  ${R.length} rounds · ${tot}/${of} correct (${Math.round(100*tot/of)}%)`);
+    R.forEach(r=>out.push(`  ${r.dl} ${r.t}  ${MODE[r.mode]}, ${NOISE[r.noise]}: ${r.score}/${r.of}`));
+    const miss={};R.forEach(r=>r.missed.forEach(m=>{const key=m.replace(/ \(chose.*\)$/,"");miss[key]=(miss[key]||0)+1}));
+    const top=Object.entries(miss).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    if(top.length)out.push("  Most missed: "+top.map(([w,n])=>`${w} ×${n}`).join(", "));
+    out.push("");
+  }
+  out.push("SAY IT – items said 3 times (last 7 days)");
+  out.push(said.length?said.map(x=>"  • "+x).join("\n"):"  None marked.");out.push("");
+  out.push("BUILD IT (last 7 days)");
+  if(!build.length)out.push("  None completed.");
+  else{const first=build.filter(b=>b.tries===1).length;out.push(`  ${build.length} sentences, ${first} right first try`);
+    const hard={};build.filter(b=>b.tries>1).forEach(b=>hard[b.s]=Math.max(hard[b.s]||0,b.tries));
+    Object.entries(hard).forEach(([s,t])=>out.push(`  • needed ${t} tries: ${s}`))}
+  return out.join("\n");
+}
+function showWeekly(){
+  const last=+lsGet(SENT_KEY)||0,el=document.getElementById("weeklyStatus");
+  el.textContent=last?`Weekly report last sent automatically: ${new Date(last).toLocaleDateString("en-AU",{weekday:"short",day:"numeric",month:"short"})}`:"A weekly report will be sent automatically. 每週會自動寄出報告。";
+}
+let sending=false;
+async function maybeSendWeekly(force){
+  if(sending||!navigator.onLine)return;
+  const now=Date.now();
+  if(force===true){sending=true;try{const r=await fetch("https://api.web3forms.com/submit",{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},
+    body:JSON.stringify({access_key:W3F_KEY,subject:"TEST – Ryan's Speech Home Program weekly report",from_name:"Ryan's Speech Home Program",message:weeklyText()})});
+    document.getElementById("weeklyStatus").textContent=r.ok?"Test report sent. Check your inbox.":"Test failed ("+r.status+").";}catch(e){document.getElementById("weeklyStatus").textContent="Test failed: no connection."}sending=false;return}
+  if(!Object.values(store.days).some(active))return;      // nothing practised yet
+  let last=+lsGet(SENT_KEY)||0;
+  if(!last){const firstDay=Object.keys(store.days).filter(k=>active(store.days[k])).sort()[0];
+    last=new Date(firstDay+"T00:00:00").getTime();}       // first report one week after first practice
+  if(now-last<WEEK)return;
+  sending=true;
+  try{
+    const name=cName.value.trim();
+    const res=await fetch("https://api.web3forms.com/submit",{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},
+      body:JSON.stringify({access_key:W3F_KEY,subject:`Weekly report – Ryan's Speech Home Program – ${todayKey}`,from_name:"Ryan's Speech Home Program",name:name||"Ryan",message:weeklyText()})});
+    const j=await res.json().catch(()=>({}));
+    if(res.ok&&j.success!==false){lsSet(SENT_KEY,String(now));showWeekly()}
+  }catch(e){/* offline or blocked: try again next time the page opens */}
+  sending=false;
+}
+showWeekly();
+setTimeout(()=>maybeSendWeekly(location.hash==="#sendtest"),3000);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")maybeSendWeekly()});
 })();
 </script>
 </body>
