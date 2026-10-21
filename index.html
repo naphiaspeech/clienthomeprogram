@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ryan's Speech Home Program</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+[hidden]{display:none!important}
+body{margin:0}
+img{max-width:100%}
+/* Layout: a deli ticket header ("now serving" = practice day), then four numbered stations done in order each day */
+:root{
+  --bg:#eef2ee; --surface:#ffffff; --soft:#e2ebe5; --ink:#17231d; --muted:#56665d; --line:#cfd9d2;
+  --accent:#1d6a4c; --accent-ink:#ffffff; --ticket:#c43d2c; --good:#237a46; --bad:#b8392b; --mark:#f6dcc0;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111815; --surface:#1a231f; --soft:#22302a; --ink:#e7efe9; --muted:#9db0a5; --line:#2e3c35;
+  --accent:#55b98b; --accent-ink:#0c1410; --ticket:#ef7a62; --good:#5cc287; --bad:#ef7a62; --mark:#5a3f26; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111815; --surface:#1a231f; --soft:#22302a; --ink:#e7efe9; --muted:#9db0a5; --line:#2e3c35;
+  --accent:#55b98b; --accent-ink:#0c1410; --ticket:#ef7a62; --good:#5cc287; --bad:#ef7a62; --mark:#5a3f26; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:17px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:760px;margin:0 auto;display:grid;gap:20px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.05;letter-spacing:.01em}
+h1{font-size:2.6rem}
+h2{font-size:1.9rem}
+h3{font-size:1.3rem}
+p{margin:0}
+.zh{color:var(--muted);font-size:.92em}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,label:focus-within{outline:3px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* ticket header */
+.ticket{background:var(--surface);border:1px solid var(--line);border-radius:6px;display:grid;grid-template-columns:auto 1fr;overflow:hidden}
+.stub{background:var(--ticket);color:#fff;padding:14px 18px;display:grid;align-content:center;justify-items:center;min-width:104px;border-right:2px dashed var(--bg)}
+.stub small{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.12em;text-transform:uppercase}
+.stub b{font-family:var(--f-display);font-size:3.2rem;line-height:1}
+.tk-body{padding:16px 18px;display:grid;gap:6px;min-width:0}
+.tk-body .zh{font-size:.95rem}
+.today{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.chip{font-family:var(--f-mono);font-size:.78rem;padding:4px 9px;border-radius:99px;background:var(--soft);color:var(--muted);border:1px solid var(--line)}
+.chip.done{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+/* station tabs */
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.tab{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:10px 8px;text-align:left;display:grid;gap:2px;min-width:0}
+.tab .n{font-family:var(--f-mono);font-size:.72rem;color:var(--muted);letter-spacing:.08em}
+.tab .t{font-family:var(--f-display);font-size:1.15rem;line-height:1.1}
+.tab .c{font-size:.78rem;color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.tab[aria-selected="true"] .n,.tab[aria-selected="true"] .c{color:var(--accent-ink);opacity:.85}
+@media (max-width:520px){.tabs{grid-template-columns:repeat(2,1fr)}}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:20px;display:grid;gap:16px}
+.intro{display:grid;gap:4px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.label{font-family:var(--f-mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;flex-wrap:wrap}
+.seg button{background:transparent;border:0;padding:7px 12px;font-size:.92rem}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.settings{display:grid;gap:10px;padding:12px;background:var(--soft);border-radius:6px}
+.settings .row{justify-content:space-between}
+
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:6px;padding:12px 18px;font-weight:700}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);font-weight:400}
+.btn.big{font-size:1.2rem;padding:16px 26px}
+.btn:disabled{opacity:.45;cursor:default}
+
+/* listening game */
+.game{display:grid;gap:14px;justify-items:center;text-align:center;padding:10px 0}
+.score{font-family:var(--f-mono);color:var(--muted);font-size:.9rem}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%}
+.choice{background:var(--bg);border:2px solid var(--line);border-radius:8px;padding:18px 10px;display:grid;gap:4px;justify-items:center;min-width:0}
+.choice .w{font-family:var(--f-display);font-size:2.1rem;line-height:1;overflow-wrap:anywhere}
+.choice .s{font-family:var(--f-mono);font-size:.78rem;color:var(--muted)}
+.choice.right{border-color:var(--good);background:color-mix(in srgb,var(--good) 14%,var(--surface))}
+.choice.wrong{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,var(--surface))}
+.fb{min-height:1.6em;font-weight:700}
+.fb.ok{color:var(--good)} .fb.no{color:var(--bad)}
+.work{font-size:.92rem;color:var(--muted)}
+.dots{display:flex;gap:5px;flex-wrap:wrap;justify-content:center}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--line)}
+.dot.y{background:var(--good)} .dot.n{background:var(--bad)}
+
+/* speak cards */
+.cards{display:grid;gap:10px}
+.card{border:1px solid var(--line);border-radius:6px;padding:12px 14px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:var(--bg)}
+.card .txt{font-size:1.25rem;min-width:0;overflow-wrap:anywhere}
+mark{background:var(--mark);color:inherit;padding:0 2px;border-radius:3px;font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
+.card .ctl{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.ib{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 10px;font-size:.85rem;white-space:nowrap}
+.tries{display:flex;gap:4px}
+.try{width:30px;height:30px;border-radius:50%;border:2px solid var(--line);background:var(--surface);font-family:var(--f-mono);font-size:.75rem}
+.try.on{background:var(--good);border-color:var(--good);color:#fff}
+@media (max-width:520px){.card{grid-template-columns:1fr}.card .ctl{justify-content:flex-start}}
+.tip{border-left:4px solid var(--ticket);padding:10px 14px;background:var(--soft);border-radius:0 6px 6px 0;display:grid;gap:4px}
+.tip b{font-family:var(--f-display);font-size:1.15rem;letter-spacing:.02em}
+.rec{display:grid;gap:8px;padding:12px;border:1px dashed var(--line);border-radius:6px}
+.rec audio{width:100%}
+
+/* sentence builder */
+.slot{min-height:64px;border:2px dashed var(--line);border-radius:8px;padding:10px;display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start}
+.slot.ok{border-style:solid;border-color:var(--good)} .slot.no{border-style:solid;border-color:var(--bad)}
+.bank{display:flex;flex-wrap:wrap;gap:8px;min-height:48px}
+.tile{background:var(--surface);border:1px solid var(--ink);border-radius:5px;padding:8px 12px;font-size:1.1rem;box-shadow:0 2px 0 var(--line)}
+.slot .tile{background:var(--soft)}
+.tile.used{visibility:hidden}
+.note{font-size:.95rem;padding:10px 12px;background:var(--soft);border-radius:6px}
+
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cal .dow{font-family:var(--f-mono);font-size:.7rem;color:var(--muted);text-align:center}
+.cal .d{aspect-ratio:1;max-width:100%;border-radius:5px;background:var(--soft);border:1px solid var(--line);display:grid;place-items:center;font-family:var(--f-mono);font-size:.75rem;color:var(--muted)}
+.cal .d.l1{background:color-mix(in srgb,var(--good) 25%,var(--surface));color:var(--ink)}
+.cal .d.l2{background:color-mix(in srgb,var(--good) 45%,var(--surface));color:var(--ink)}
+.cal .d.l3{background:color-mix(in srgb,var(--good) 70%,var(--surface));color:var(--ink)}
+.cal .d.l4{background:var(--good);color:#fff;border-color:var(--good)}
+.cal .d.today{outline:2px solid var(--ticket);outline-offset:1px}
+.cal .d.fut{opacity:.35}
+.legend{gap:14px;font-size:.8rem;color:var(--muted)}
+.legend span{display:inline-flex;gap:6px;align-items:center}
+.lv{width:12px;height:12px;border-radius:3px;display:inline-block;border:1px solid var(--line);background:var(--soft)}
+.lv.l1{background:color-mix(in srgb,var(--good) 25%,var(--surface))}.lv.l3{background:color-mix(in srgb,var(--good) 70%,var(--surface))}.lv.l4{background:var(--good)}
+.warn{border:1px solid var(--ticket);border-radius:6px;padding:12px 14px;font-size:.92rem;display:grid;gap:4px}
+footer{color:var(--muted);font-size:.85rem;text-align:center;display:grid;gap:4px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="ticket">
+    <div class="stub"><small>Day</small><b class="mono" id="dayNo">1</b><small>practised</small></div>
+    <div class="tk-body">
+      <h1>Ryan's Speech Home Program</h1>
+      <p>Listening, speaking and sentences for work. About 15 minutes a day. Use headphones if you can.</p>
+      <p class="zh">每天約15分鐘：聽、說、排句子。最好戴耳機。</p>
+      <div class="today" id="today"></div>
+    </div>
+  </header>
+
+  <section class="panel" id="p-record" style="gap:12px">
+    <div class="row" style="justify-content:space-between">
+      <h3>My practice record <span class="zh" style="font-family:var(--f-body);font-size:.9rem">練習記錄</span></h3>
+      <span class="chip" id="streak"></span>
+    </div>
+    <div class="cal" id="cal"></div>
+    <div class="row legend"><span><i class="lv l0"></i>No practice</span><span><i class="lv l1"></i>Some</span><span><i class="lv l3"></i>Most goals</span><span><i class="lv l4"></i>All 4 goals</span></div>
+  </section>
+
+  <div class="warn" id="voiceWarn" hidden></div>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-tab="listen" aria-selected="true"><span class="n">STATION 1</span><span class="t">Listen: English</span><span class="c">s or sh?</span></button>
+    <button class="tab" role="tab" data-tab="mando" aria-selected="false"><span class="n">STATION 2</span><span class="t">Listen: 普通話</span><span class="c">s 還是 sh?</span></button>
+    <button class="tab" role="tab" data-tab="speak" aria-selected="false"><span class="n">STATION 3</span><span class="t">Say it</span><span class="c">Words for work</span></button>
+    <button class="tab" role="tab" data-tab="build" aria-selected="false"><span class="n">STATION 4</span><span class="t">Build it</span><span class="c">Put words in order</span></button>
+  </nav>
+
+  <!-- STATION 1 -->
+  <section class="panel" id="p-listen">
+    <div class="intro">
+      <h2>Listen: s or sh?</h2>
+      <p>No lips to watch here, only your ears. Press play, then choose. Wrong? Press <b>Hear both</b>.</p>
+      <p class="zh">這裡看不到嘴型，只用耳朵聽。按播放，再選答案。</p>
+    </div>
+    <div class="settings">
+      <div class="row"><span class="label">Level</span>
+        <div class="seg" id="enMode">
+          <button data-v="sound" aria-pressed="true">1 · Sounds</button>
+          <button data-v="which" aria-pressed="false">2 · Words</button>
+          <button data-v="same" aria-pressed="false">3 · Same or different</button>
+        </div></div>
+      <div class="row"><span class="label">Shop noise</span>
+        <div class="seg" id="enNoise"><button data-v="0" aria-pressed="true">Off</button><button data-v="1" aria-pressed="false">Quiet</button><button data-v="2" aria-pressed="false">Busy</button><button data-v="3" aria-pressed="false">Very busy</button></div></div>
+      <div class="row"><span class="label">Speed</span>
+        <div class="seg" id="enSpeed"><button data-v="slow" aria-pressed="false">Slow</button><button data-v="normal" aria-pressed="true">Normal</button></div></div>
+    </div>
+    <div class="game" id="enGame"></div>
+  </section>
+
+  <!-- STATION 2 -->
+  <section class="panel" id="p-mando" hidden>
+    <div class="intro">
+      <h2>普通話：s 還是 sh？</h2>
+      <p>Same game in Mandarin. Listen for the tongue sound at the start: 四 sì or 是 shì.</p>
+      <p class="zh">聽字的開頭：平舌 s（四）還是翹舌 sh（是）？</p>
+    </div>
+    <div class="settings">
+      <div class="row"><span class="label">Level</span>
+        <div class="seg" id="zhMode"><button data-v="which" aria-pressed="true">1 · Which word?</button><button data-v="same" aria-pressed="false">2 · Same or different</button></div></div>
+      <div class="row"><span class="label">Shop noise</span>
+        <div class="seg" id="zhNoise"><button data-v="0" aria-pressed="true">Off</button><button data-v="1" aria-pressed="false">Quiet</button><button data-v="2" aria-pressed="false">Busy</button><button data-v="3" aria-pressed="false">Very busy</button></div></div>
+      <div class="row"><span class="label">Characters</span>
+        <div class="seg" id="zhScript"><button data-v="t" aria-pressed="true">繁體</button><button data-v="s" aria-pressed="false">简体</button></div></div>
+    </div>
+    <div class="game" id="zhGame"></div>
+  </section>
+
+  <!-- STATION 3 -->
+  <section class="panel" id="p-speak" hidden>
+    <div class="intro">
+      <h2>Say it</h2>
+      <p>Listen to the model, then say it 3 times. Tap a circle each time you say it well. The marked letters are your target sounds.</p>
+      <p class="zh">先聽，再自己說3次。說得好就按一個圓圈。有底線的字母是要練的音。</p>
+    </div>
+    <div class="settings">
+      <div class="row"><span class="label">Sound</span>
+        <div class="seg" id="spGroup">
+          <button data-v="ssh" aria-pressed="true">s / sh</button>
+          <button data-v="r" aria-pressed="false">r</button>
+          <button data-v="fin" aria-pressed="false">s at the end</button>
+          <button data-v="mid" aria-pressed="false">s in the middle</button>
+          <button data-v="work" aria-pressed="false">Work sentences</button>
+        </div></div>
+    </div>
+    <div class="tip" id="spTip"></div>
+    <div class="cards" id="spCards"></div>
+    <div class="rec">
+      <span class="label">Check yourself</span>
+      <p style="font-size:.95rem">Record yourself on your phone, then play it back. Do you hear the <b>s</b> at the end? Does <b>sh</b> sound different from <b>s</b>?</p>
+      <p class="zh">用手機錄音再聽一次，檢查自己的發音。</p>
+      <label class="btn ghost" style="justify-self:start" for="recIn">Record or choose a recording</label>
+      <input id="recIn" type="file" accept="audio/*" capture hidden>
+      <audio id="recOut" controls hidden></audio>
+    </div>
+  </section>
+
+  <!-- STATION 4 -->
+  <section class="panel" id="p-build" hidden>
+    <div class="intro">
+      <h2>Build it</h2>
+      <p>Tap the words in the right order. Then say the sentence out loud.</p>
+      <p class="zh">按正確次序點選字詞，排好句子後大聲讀出來。</p>
+    </div>
+    <div class="row" style="justify-content:space-between"><span class="score" id="bCount"></span><button class="ib" id="bHear">Hear the sentence</button></div>
+    <div class="slot" id="bSlot" aria-label="Your sentence"></div>
+    <div class="bank" id="bBank"></div>
+    <div class="fb" id="bFb"></div>
+    <div class="note" id="bNote" hidden></div>
+    <div class="row">
+      <button class="btn" id="bCheck">Check</button>
+      <button class="btn ghost" id="bClear">Clear</button>
+      <button class="btn ghost" id="bNext">Next sentence</button>
+    </div>
+  </section>
+
+  <section class="panel" id="p-send">
+    <div class="intro">
+      <h2>Finished? Send your results</h2>
+      <p>When you finish today, send this to Naphia. Press <b>Email results</b>. If your email doesn't open, press <b>Copy results</b> and paste them into an email or message.</p>
+      <p class="zh">練習完成後，按「Email results」寄給治療師。如果電郵沒有打開，就按「Copy results」，再貼到電郵或訊息裡。</p>
+    </div>
+    <div class="row">
+      <label class="label" for="cName">Your name</label>
+      <input id="cName" type="text" autocomplete="name" style="font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);flex:1;min-width:0">
+    </div>
+    <pre id="sumOut" style="margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font-family:var(--f-mono);font-size:.82rem;background:var(--soft);padding:12px;border-radius:6px;max-height:320px;overflow:auto"></pre>
+    <div class="row">
+      <a class="btn" id="sumMail" href="#" style="text-decoration:none">Email results</a>
+      <button class="btn ghost" id="sumCopy">Copy results</button>
+      <span class="fb ok" id="sumFb"></span>
+    </div>
+    <p class="zh" style="font-size:.85rem">Send to: <span class="mono" style="user-select:all">naphia@cosmicspeech.com.au</span></p>
+  </section>
+
+  <footer>
+    <p>Home program from your speech pathologist, Naphia · 治療師 Naphia</p>
+    <p>Progress is saved on this device only.</p>
+  </footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+/* ---------- storage ---------- */
+const KEY="deliPractice.v1";
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return{}}}
+function save(d){try{localStorage.setItem(KEY,JSON.stringify(d))}catch(e){}}
+const store=load(); store.days=store.days||{};
+const todayKey=new Date().toLocaleDateString("en-CA");
+function day(){return store.days[todayKey]=store.days[todayKey]||{en:0,zh:0,say:0,build:0}}
+const GOALS={en:10,zh:10,say:10,build:3};
+const NAMES={en:"English listening",zh:"普通話 listening",say:"Say it",build:"Build it"};
+store.log=store.log||{};
+function log(){return store.log[todayKey]=store.log[todayKey]||{rounds:[],said:[],build:[]}}
+function bump(k,n){const D=day();D[k]+=n||1;const now=Date.now();D.first=D.first||now;D.last=now;save(store);renderToday();renderSummary()}
+function renderToday(){
+  const d=day();
+  const practised=Object.values(store.days).filter(v=>v.en+v.zh+v.say+v.build>0).length;
+  document.getElementById("dayNo").textContent=Math.max(practised,1);
+  document.getElementById("today").innerHTML=Object.keys(GOALS).map(k=>{
+    const v=Math.min(d[k],GOALS[k]);return `<span class="chip ${d[k]>=GOALS[k]?"done":""}">${NAMES[k]} ${v}/${GOALS[k]}</span>`}).join("");
+  renderRecord();
+}
+function dkey(dt){return dt.toLocaleDateString("en-CA")}
+function goalsMet(v){return v?Object.keys(GOALS).filter(k=>v[k]>=GOALS[k]).length:0}
+function active(v){return !!v&&(v.en+v.zh+v.say+v.build>0)}
+function level(v){if(!active(v))return 0;const g=goalsMet(v);return g>=4?4:g>=2?3:g>=1?2:1}
+function streak(){let n=0;const dt=new Date();if(!active(store.days[dkey(dt)]))dt.setDate(dt.getDate()-1);
+  while(active(store.days[dkey(dt)])){n++;dt.setDate(dt.getDate()-1)}return n}
+function renderRecord(){
+  const cal=document.getElementById("cal");if(!cal)return;
+  const t=new Date();t.setHours(0,0,0,0);
+  const start=new Date(t);start.setDate(t.getDate()-((t.getDay()+6)%7)-21);
+  let h=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d=>`<span class="dow">${d}</span>`).join("");
+  for(let i=0;i<28;i++){const d=new Date(start);d.setDate(start.getDate()+i);const k=dkey(d),v=store.days[k];
+    const fut=d>t,lv=fut?0:level(v);
+    h+=`<span class="d l${lv} ${k===todayKey?"today":""} ${fut?"fut":""}" title="${k}${v?": "+goalsMet(v)+"/4 goals":""}">${d.getDate()}</span>`}
+  cal.innerHTML=h;
+  const s=streak();document.getElementById("streak").textContent=s?`${s} day${s>1?"s":""} in a row`:"Start today";
+}
+renderToday();
+
+/* ---------- speech ---------- */
+const synth=window.speechSynthesis;let voices=[];
+function loadVoices(){if(!synth)return;voices=synth.getVoices();checkVoices()}
+if(synth){loadVoices();synth.onvoiceschanged=loadVoices}
+function pick(langs){
+  for(const l of langs){const v=voices.find(v=>v.lang&&v.lang.replace("_","-").toLowerCase().startsWith(l.toLowerCase()));if(v)return v}
+  return null}
+function enVoice(){return pick(["en-AU","en-GB","en-US","en"])}
+function zhVoice(){return pick(["zh-CN","cmn","zh-TW","zh-Hans","zh-Hant"])}
+function checkVoices(){
+  const w=document.getElementById("voiceWarn");
+  if(!synth){w.hidden=false;w.innerHTML="<b>This browser cannot speak words.</b> Please open the page in Safari or Chrome.";return}
+  if(voices.length&&!zhVoice()){w.hidden=false;w.innerHTML="<b>No Mandarin voice on this device yet.</b> iPhone: Settings → Accessibility → Spoken Content → Voices → Chinese (China). Android: Settings → Text-to-speech → install Chinese.<span class='zh'>請在手機設定中下載中文（普通話）語音。</span>"}
+  else w.hidden=true;
+}
+function say(text,lang,rate){
+  return new Promise(res=>{
+    if(!synth){res();return}
+    synth.cancel();
+    const u=new SpeechSynthesisUtterance(text);
+    const v=lang==="zh"?zhVoice():enVoice();
+    if(v){u.voice=v;u.lang=v.lang}else u.lang=lang==="zh"?"zh-CN":"en-AU";
+    u.rate=rate||0.9;
+    let done=false;const fin=()=>{if(!done){done=true;res()}};
+    u.onend=fin;u.onerror=fin;setTimeout(fin,4000);
+    synth.speak(u);
+  });
+}
+const strip=s=>s.replace(/[{}]/g,"");
+const markup=s=>s.replace(/\{([^}]+)\}/g,"<mark>$1</mark>");
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+
+/* ---------- audio: shop noise + isolated s/sh ---------- */
+let ctx=null,noiseBuf=null,noiseNode=null,noiseGain=null;
+function ac(){if(!ctx){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;ctx=new C()}if(ctx.state==="suspended")ctx.resume();return ctx}
+function whiteBuf(c,sec){const b=c.createBuffer(1,c.sampleRate*sec,c.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b}
+function pinkBuf(c,sec){const b=c.createBuffer(1,c.sampleRate*sec,c.sampleRate),d=b.getChannelData(0);let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+  for(let i=0;i<d.length;i++){const w=Math.random()*2-1;b0=.99886*b0+w*.0555179;b1=.99332*b1+w*.0750759;b2=.969*b2+w*.153852;b3=.8665*b3+w*.3104856;b4=.55*b4+w*.5329522;b5=-.7616*b5-w*.016898;d[i]=(b0+b1+b2+b3+b4+b5+b6+w*.5362)*.11;b6=w*.115926}return b}
+const NOISE_LV=[0,.25,.55,.9];
+function noiseOn(level){
+  const c=ac();if(!c||!level)return;noiseOff();
+  noiseBuf=noiseBuf||pinkBuf(c,4);
+  noiseNode=c.createBufferSource();noiseNode.buffer=noiseBuf;noiseNode.loop=true;
+  const lp=c.createBiquadFilter();lp.type="lowpass";lp.frequency.value=1800;
+  noiseGain=c.createGain();noiseGain.gain.value=NOISE_LV[level];
+  const lfo=c.createOscillator(),lg=c.createGain();lfo.frequency.value=3.1;lg.gain.value=NOISE_LV[level]*.35;lfo.connect(lg);lg.connect(noiseGain.gain);lfo.start();
+  noiseNode.connect(lp);lp.connect(noiseGain);noiseGain.connect(c.destination);noiseNode.start();noiseNode._lfo=lfo;
+}
+function noiseOff(){if(noiseNode){try{noiseNode.stop();noiseNode._lfo.stop()}catch(e){}noiseNode=null}}
+function fric(kind){
+  return new Promise(res=>{
+    const c=ac();if(!c){res();return}
+    const src=c.createBufferSource();src.buffer=whiteBuf(c,1);
+    const f1=c.createBiquadFilter(),f2=c.createBiquadFilter(),g=c.createGain();
+    if(kind==="s"){f1.type="highpass";f1.frequency.value=4500;f2.type="peaking";f2.frequency.value=7000;f2.gain.value=8}
+    else{f1.type="bandpass";f1.frequency.value=2700;f1.Q.value=1.2;f2.type="lowpass";f2.frequency.value=5200}
+    const t=c.currentTime,dur=.65,peak=kind==="s"?.5:.75;
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(peak,t+.08);g.gain.setValueAtTime(peak,t+dur-.1);g.gain.linearRampToValueAtTime(0,t+dur);
+    src.connect(f1);f1.connect(f2);f2.connect(g);g.connect(c.destination);src.start(t);src.stop(t+dur+.05);
+    src.onended=()=>res();
+  });
+}
+
+/* ---------- data ---------- */
+const EN=[ // [s word, sh word, at work]
+ ["see","she","\"She would like ham.\""],["sip","ship",""],["seat","sheet","a sheet of baking paper"],
+ ["sell","shell","shell pasta, prawn shells"],["sort","short","\"Sorry, we're short on staff.\""],
+ ["save","shave","shaved ham"],["saved","shaved","\"Would you like it shaved?\""],
+ ["sock","shock",""],["sore","shore",""],["same","shame",""],["sign","shine",""],
+ ["sour","shower","sour cream"],["sue","shoe",""],["so","show",""],
+ ["mass","mash","mash potato"],["class","clash",""],["Swiss","swish","Swiss cheese"],
+ ["lease","leash",""],["plus","plush","\"Two hundred grams, plus a bit more?\""],["sells","shells",""]
+];
+const ZH=[ // [trad s, simp s, pinyin s, trad sh, simp sh, pinyin sh, note]
+ ["四","四","sì","是","是","shì","四 = 4"],
+ ["三","三","sān","山","山","shān","三 = 3"],
+ ["絲","丝","sī","詩","诗","shī",""],
+ ["素","素","sù","樹","树","shù",""],
+ ["色","色","sè","社","社","shè",""],
+ ["掃","扫","sǎo","少","少","shǎo","少一點 = a bit less"],
+ ["森","森","sēn","深","深","shēn",""],
+ ["算","算","suàn","涮","涮","shuàn","涮肉 = hotpot meat"],
+ ["私人","私人","sīrén","詩人","诗人","shīrén",""],
+ ["四十","四十","sìshí","十四","十四","shísì","40 or 14? Listen for the order"],
+ ["素食","素食","sùshí","熟食","熟食","shúshí","熟食 = deli food"],
+ ["三號","三号","sān hào","山好","山好","shān hǎo",""]
+];
+const SPEAK={
+ ssh:{tip:["s vs sh","<b>s</b>: smile, tongue tip behind top teeth, thin snake air <i>sss</i>. <b>sh</b>: lips round and push forward like a kiss, wide quiet air <i>shhh</i>.","s：微笑，細細的氣。sh：嘴唇嘟起向前，寬寬的氣。"],
+  items:["{s}alami","{s}ausage","{s}liced","{sh}aved","{sh}ort","fre{sh}","{sh}redded","{s}moked {s}almon","spe{ci}al","{S}liced or {sh}aved?","{Sh}aved ham, plea{s}e.","{Sh}e wants {s}ix {s}lices."]},
+ r:{tip:["r","Lips a little round. Pull the tongue back. The tongue tip does <b>not</b> touch the top of your mouth. Not <i>w</i>, not <i>l</i>: <i>rrr-oast</i>.","嘴唇微圓，舌頭往後縮，舌尖不碰上顎。不是 w，也不是 l。"],
+  items:["{r}oast","{r}eady","{r}ight","p{r}ice","g{r}ams","f{r}esh","c{r}eam","{r}ed onion","f{r}ee {r}ange","p{r}osciutto","The {r}oast chicken is {r}eady.","Two hund{r}ed g{r}ams?"]},
+ fin:{tip:["s at the end","Don't stop at the vowel. Keep the air going at the end: <i>sli–ssss</i>. Cantonese words never end in s, so this one is easy to drop.","字尾的 s 不要吞掉，氣要送完：sli-sss。廣東話沒有 s 結尾，所以要特別注意。"],
+  items:["sli{ce}","pri{ce}","pie{ce}","sau{ce}","ri{ce}","min{ce}","ca{se}","plu{s}","ye{s}","lettu{ce}","One sli{ce} or two?","It's in the ca{se}.","Ye{s}, that's the pri{ce}."]},
+ mid:{tip:["s in the middle","Hold the s for a moment in the middle of the word. Slow first: <i>cus – s – tomer</i>. Then normal speed.","字中間的 s 要撐住一下，先慢慢說，再正常速度。"],
+  items:["cu{s}tomer","pa{s}trami","pe{s}to","ba{s}il","cole{s}law","Tu{s}can","kran{s}ky","dre{ss}ing","Greek dre{ss}ing","Next cu{s}tomer!","Would you like {s}ome pe{s}to?"]},
+ work:{tip:["Work sentences","Say the whole sentence slowly first. Then say it at work speed. Check every marked sound.","先慢慢讀整句，再用平常上班的速度說。"],
+  items:["How many g{r}ams would you like?","Would you like it {s}liced or {sh}aved?","Is that all for you today?","{S}o{rr}y, the {r}oa{s}t chicken will be {r}eady {s}oon.","The {s}alami is on spe{ci}al thi{s} week.","Anything el{se} for you?","That's th{r}ee hund{r}ed g{r}ams of {sh}aved ham.","Next cu{s}tomer, plea{s}e!"]}
+};
+const BUILD=[
+ ["Would you like it sliced or shaved?","A question can start with <b>Would you like…</b>"],
+ ["How many grams would you like?","<b>How many</b> comes first in this question."],
+ ["She wants two hundred grams of ham.","He / she → <b>wants</b>. Add <b>s</b> to the action word."],
+ ["The roast chicken is ready now.","One chicken → <b>is</b>."],
+ ["We have three kinds of olives.","More than one → add <b>s</b>: kind<b>s</b>, olive<b>s</b>."],
+ ["The salami is on special this week.","<b>on special</b> = cheaper this week."],
+ ["Is there anything else for you?","A question can start with <b>Is there…</b>"],
+ ["He asked for thin slices.","Yesterday / before → ask<b>ed</b>. Many → slice<b>s</b>."],
+ ["Sorry, we sold out of sausages.","Past: sell → <b>sold</b>."],
+ ["The sliced cheese is in the fridge.","<b>in the</b> fridge, <b>on</b> the shelf."],
+ ["Can I get you anything else?","Question: <b>Can I</b> + action?"],
+ ["The chicken was cooked this morning.","Past: <b>was</b> cooked."]
+];
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const rnd=a=>a[Math.floor(Math.random()*a.length)];
+function seg(id,init,on){
+  const el=document.getElementById(id);let val=init;
+  el.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;val=b.dataset.v;
+    el.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));on&&on(val)});
+  return{get:()=>val};
+}
+
+/* ---------- tabs ---------- */
+document.querySelector(".tabs").addEventListener("click",e=>{
+  const b=e.target.closest(".tab");if(!b)return;
+  document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected",t===b?"true":"false"));
+  ["listen","mando","speak","build"].forEach(k=>document.getElementById("p-"+k).hidden=k!==b.dataset.tab);
+  synth&&synth.cancel();noiseOff();
+});
+
+/* ---------- listening game ---------- */
+function Listener(o){
+  const el=document.getElementById(o.el);const ROUND=10;
+  let trial=null,results=[],answered=false,missed=[],rMode="",rNoise="0";
+  function newRound(){results=[];missed=[];rMode=o.mode();rNoise=o.noise();next()}
+  function makeTrial(){
+    const mode=o.mode();
+    if(mode==="sound"){const k=Math.random()<.5?0:1;return{mode,k,labels:[{w:"s",s:"sss"},{w:"sh",s:"shhh"}]}}
+    const p=rnd(o.items);
+    if(mode==="same"){const a=Math.random()<.5?0:1,same=Math.random()<.5,b=same?a:1-a;
+      return{mode,p,a,b,k:same?0:1,labels:[{w:"Same",s:o.zh?"一樣":""},{w:"Different",s:o.zh?"不一樣":""}]}}
+    const k=Math.random()<.5?0:1;return{mode,p,k,labels:[o.label(p,0),o.label(p,1)]};
+  }
+  async function play(){
+    noiseOn(+o.noise());await wait(o.noise()>0?400:0);
+    const t=trial;
+    if(t.mode==="sound")await fric(t.k?"sh":"s");
+    else if(t.mode==="same"){await o.speak(t.p,t.a);await wait(500);await o.speak(t.p,t.b)}
+    else await o.speak(t.p,t.k);
+    await wait(250);noiseOff();
+  }
+  async function hearBoth(){
+    const t=trial;noiseOff();
+    if(t.mode==="sound"){await fric("s");await wait(500);await fric("sh");return}
+    await o.speak(t.p,0);await wait(500);await o.speak(t.p,1);
+  }
+  function next(){
+    if(results.length>=ROUND)return finish();
+    trial=makeTrial();answered=false;render();play();
+  }
+  function choose(i){
+    if(answered)return;answered=true;
+    const ok=i===trial.k;results.push(ok);
+    if(!ok)missed.push(trial.mode==="sound"?(trial.k?"heard sh, chose s":"heard s, chose sh"):trial.mode==="same"?`${o.label(trial.p,trial.a).w}–${o.label(trial.p,trial.b).w}`:`${o.label(trial.p,trial.k).w} (chose ${o.label(trial.p,i).w})`);
+    o.onAnswer();
+    const btns=el.querySelectorAll(".choice");btns[trial.k].classList.add("right");if(!ok)btns[i].classList.add("wrong");
+    const fb=el.querySelector(".fb");fb.className="fb "+(ok?"ok":"no");
+    let msg=ok?"Correct! 答對了":"Not this time. Press Hear both. 再聽一次";
+    if(trial.mode==="same")msg+=` · You heard: ${o.label(trial.p,trial.a).w} – ${o.label(trial.p,trial.b).w}`;
+    fb.textContent=msg;
+    const work=trial.p&&o.work(trial.p);if(work){el.querySelector(".work").textContent="At work: "+work}
+    el.querySelector("#"+o.el+"-next").disabled=false;
+    el.querySelector(".dots").innerHTML=dots();
+  }
+  const dots=()=>Array.from({length:ROUND},(_,i)=>`<span class="dot ${results[i]===true?"y":results[i]===false?"n":""}"></span>`).join("");
+  function render(){
+    el.innerHTML=`<div class="dots">${dots()}</div>
+      <div class="row" style="justify-content:center"><button class="btn big" data-a="play">▶ Play</button><button class="btn ghost" data-a="both">Hear both</button></div>
+      <p class="score">${trial.mode==="same"?"Two words. Are they the same?":"Which one did you hear?"}</p>
+      <div class="choices">${trial.labels.map((l,i)=>`<button class="choice" data-i="${i}"><span class="w">${l.w}</span><span class="s">${l.s||""}</span></button>`).join("")}</div>
+      <p class="fb"></p><p class="work"></p>
+      <button class="btn ghost" id="${o.el}-next" disabled>Next →</button>`;
+  }
+  function finish(){
+    const n=results.filter(Boolean).length;
+    log().rounds.push({st:o.key,mode:rMode,noise:+rNoise,score:n,of:ROUND,missed:missed.slice(),t:new Date().toTimeString().slice(0,5)});save(store);renderSummary();
+    el.innerHTML=`<div class="dots">${dots()}</div><h3>${n} / ${ROUND} correct</h3>
+      <p>${n>=9?"Excellent. Try more shop noise next time. 很好！下次加一點噪音。":n>=7?"Good work. Do one more round. 不錯，再做一輪。":"Keep going. Try Slow speed or no noise. 慢慢來，可以先關掉噪音。"}</p>
+      <button class="btn big" data-a="again">Start another round</button>`;
+  }
+  el.addEventListener("click",e=>{
+    const b=e.target.closest("button");if(!b)return;
+    if(b.dataset.a==="play")play();else if(b.dataset.a==="both")hearBoth();
+    else if(b.dataset.a==="again"||b.dataset.a==="start")newRound();
+    else if(b.dataset.i!==undefined)choose(+b.dataset.i);
+    else if(b.id===o.el+"-next")next();
+  });
+  function idle(){el.innerHTML=`<p class="score">10 questions per round</p><button class="btn big" data-a="start">Start listening</button>`}
+  idle();
+  return{reset:()=>{noiseOff();synth&&synth.cancel();idle()}};
+}
+const enMode=seg("enMode","sound",()=>en.reset()),enNoise=seg("enNoise","0"),enSpeed=seg("enSpeed","normal");
+const en=Listener({key:"en",el:"enGame",mode:enMode.get,noise:enNoise.get,items:EN,
+  label:(p,i)=>({w:p[i],s:i?"sh":"s"}),work:p=>p[2],
+  speak:(p,i)=>say(p[i],"en",enSpeed.get()==="slow"?.6:.9),onAnswer:()=>bump("en")});
+const zhMode=seg("zhMode","which",()=>zh.reset()),zhNoise=seg("zhNoise","0"),zhScript=seg("zhScript","t",()=>zh.reset());
+const zh=Listener({key:"zh",el:"zhGame",mode:zhMode.get,noise:zhNoise.get,items:ZH,zh:true,
+  label:(p,i)=>{const t=zhScript.get()==="t";return i?{w:t?p[3]:p[4],s:p[5]}:{w:t?p[0]:p[1],s:p[2]}},
+  work:p=>p[6],speak:(p,i)=>say(i?p[4]:p[1],"zh",.75),onAnswer:()=>bump("zh")});
+
+/* ---------- speak ---------- */
+const sayDone=store.sayDone=store.sayDone||{};
+function renderSpeak(g){
+  const s=SPEAK[g];
+  $("#spTip").innerHTML=`<b>${s.tip[0]}</b><p>${s.tip[1]}</p><p class="zh">${s.tip[2]}</p>`;
+  const k=todayKey+"|";
+  $("#spCards").innerHTML=s.items.map((it,i)=>{const n=sayDone[k+g+i]||0;
+    return `<div class="card" data-i="${i}"><div class="txt">${markup(it)}</div><div class="ctl">
+      <button class="ib" data-a="n">▶ Hear</button><button class="ib" data-a="s">Slow</button>
+      <span class="tries">${[1,2,3].map(t=>`<button class="try ${n>=t?"on":""}" data-t="${t}" aria-label="Said it ${t}">${t}</button>`).join("")}</span></div></div>`}).join("");
+  $("#spCards").dataset.g=g;
+}
+const spGroup=seg("spGroup","ssh",renderSpeak);renderSpeak("ssh");
+$("#spCards").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;const card=b.closest(".card");const g=$("#spCards").dataset.g,i=+card.dataset.i;
+  const txt=strip(SPEAK[g].items[i]);
+  if(b.dataset.a==="n")say(txt,"en",.9);else if(b.dataset.a==="s")say(txt,"en",.55);
+  else if(b.dataset.t){const key=todayKey+"|"+g+i,prev=sayDone[key]||0,t=+b.dataset.t,nv=prev===t?t-1:t;
+    sayDone[key]=nv;if(prev<3&&nv===3){const L=log().said;if(!L.includes(txt))L.push(txt);bump("say")}else save(store);
+    card.querySelectorAll(".try").forEach(x=>x.classList.toggle("on",+x.dataset.t<=nv))}
+});
+$("#recIn").addEventListener("change",e=>{const f=e.target.files&&e.target.files[0];if(!f)return;const a=$("#recOut");a.src=URL.createObjectURL(f);a.hidden=false});
+
+/* ---------- build ---------- */
+let bTries=0;
+let bOrder=shuffle(BUILD.map((_,i)=>i)),bPos=0,bPicked=[],bWords=[],bDone=false;
+function bLoad(){
+  const [s]=BUILD[bOrder[bPos%BUILD.length]];
+  bWords=s.split(" ");bPicked=[];bDone=false;bTries=0;
+  let sh=shuffle(bWords.map((w,i)=>i));if(bWords.length>2&&sh.every((v,i)=>v===i))sh.reverse();
+  $("#bBank").innerHTML=sh.map(i=>`<button class="tile" data-w="${i}">${bWords[i]}</button>`).join("");
+  $("#bSlot").className="slot";$("#bFb").textContent="";$("#bNote").hidden=true;
+  $("#bCount").textContent=`Sentence ${bPos%BUILD.length+1} of ${BUILD.length} · Today: ${day().build}`;
+  bRender();
+}
+function bRender(){
+  $("#bSlot").innerHTML=bPicked.length?bPicked.map((w,j)=>`<button class="tile" data-j="${j}">${bWords[w]}</button>`).join(""):`<span class="score">Tap words below</span>`;
+  $("#bBank").querySelectorAll(".tile").forEach(t=>t.classList.toggle("used",bPicked.includes(+t.dataset.w)));
+}
+$("#bBank").addEventListener("click",e=>{const t=e.target.closest(".tile");if(!t||bDone)return;const w=+t.dataset.w;if(bPicked.includes(w))return;bPicked.push(w);$("#bSlot").className="slot";bRender()});
+$("#bSlot").addEventListener("click",e=>{const t=e.target.closest(".tile");if(!t||bDone)return;bPicked.splice(+t.dataset.j,1);$("#bSlot").className="slot";bRender()});
+$("#bClear").addEventListener("click",()=>{if(bDone)return;bPicked=[];$("#bSlot").className="slot";$("#bFb").textContent="";bRender()});
+$("#bCheck").addEventListener("click",()=>{
+  if(bDone)return;
+  const [s,note]=BUILD[bOrder[bPos%BUILD.length]];
+  const got=bPicked.map(i=>bWords[i]).join(" ");
+  const fb=$("#bFb");
+  if(bPicked.length<bWords.length){fb.className="fb no";fb.textContent="Use all the words. 請用上所有字詞。";return}
+  bTries++;
+  if(got===s){bDone=true;log().build.push({s,tries:bTries});$("#bSlot").className="slot ok";fb.className="fb ok";fb.textContent="Correct! Now say it out loud 3 times. 答對了！大聲讀3次。";
+    $("#bNote").innerHTML=note;$("#bNote").hidden=false;bump("build");say(s,"en",.85);
+    $("#bCount").textContent=`Sentence ${bPos%BUILD.length+1} of ${BUILD.length} · Today: ${day().build}`}
+  else{$("#bSlot").className="slot no";fb.className="fb no";fb.textContent="Not quite. Tap a word to move it back. 再試一次。";$("#bNote").innerHTML="Hint: "+note;$("#bNote").hidden=false}
+});
+$("#bHear").addEventListener("click",()=>say(BUILD[bOrder[bPos%BUILD.length]][0],"en",.8));
+$("#bNext").addEventListener("click",()=>{bPos++;bLoad()});
+bLoad();
+
+/* ---------- summary ---------- */
+const MODE={sound:"sounds only",which:"which word",same:"same/different"};
+const NOISE=["no noise","quiet noise","busy noise","very busy noise"];
+const cName=$("#cName");
+try{cName.value=localStorage.getItem(KEY+".name")||""}catch(e){}
+cName.addEventListener("input",()=>{try{localStorage.setItem(KEY+".name",cName.value)}catch(e){}renderSummary()});
+function summaryText(){
+  const L=log(),d=day(),name=cName.value.trim()||"(name not entered)";
+  const out=[`Ryan's Speech Home Program – ${name}`,`Date: ${new Date().toLocaleDateString("en-AU",{weekday:"short",day:"numeric",month:"short",year:"numeric"})}`,`Days practised so far: ${document.getElementById("dayNo").textContent}`,""];
+  out.push(`Days in a row: ${streak()}`,"");
+  out.push("PRACTICE RECORD – LAST 14 DAYS");
+  for(let i=13;i>=0;i--){const dt=new Date();dt.setDate(dt.getDate()-i);const v=store.days[dkey(dt)];
+    const lbl=dt.toLocaleDateString("en-AU",{weekday:"short",day:"numeric",month:"short"}).padEnd(14);
+    if(!active(v))out.push(`  ${lbl} —  no practice`);
+    else{const mins=v.first&&v.last?Math.max(1,Math.round((v.last-v.first)/60000)):null;
+      out.push(`  ${lbl} ✓  ${goalsMet(v)}/4 goals · EN ${v.en} · ZH ${v.zh} · Say ${v.say} · Build ${v.build}${mins?` · ~${mins} min`:""}`)}}
+  out.push("");
+  out.push(`TODAY: English listening ${d.en}/${GOALS.en} · Mandarin listening ${d.zh}/${GOALS.zh} · Say it ${d.say}/${GOALS.say} · Build it ${d.build}/${GOALS.build}`,"");
+  for(const [k,title] of [["en","1. LISTENING – ENGLISH s/sh"],["zh","2. LISTENING – MANDARIN s/sh"]]){
+    const R=L.rounds.filter(r=>r.st===k);out.push(title);
+    if(!R.length)out.push("  No full rounds today.");
+    R.forEach(r=>{out.push(`  ${r.t}  ${MODE[r.mode]}, ${NOISE[r.noise]}: ${r.score}/${r.of}`);if(r.missed.length)out.push(`     missed: ${r.missed.join("; ")}`)});
+    out.push("");
+  }
+  out.push("3. SAY IT (said 3 times)");
+  out.push(L.said.length?L.said.map(x=>"  • "+x).join("\n"):"  None marked today.");out.push("");
+  out.push("4. BUILD IT");
+  if(!L.build.length)out.push("  None completed today.");
+  else{const first=L.build.filter(b=>b.tries===1).length;out.push(`  ${L.build.length} sentences, ${first} right first try`);
+    L.build.filter(b=>b.tries>1).forEach(b=>out.push(`  • needed ${b.tries} tries: ${b.s}`))}
+  return out.join("\n");
+}
+function renderSummary(){
+  const t=summaryText();$("#sumOut").textContent=t;
+  const name=cName.value.trim();
+  $("#sumMail").href="mailto:naphia@cosmicspeech.com.au?subject="+encodeURIComponent("Ryan's home program results"+(name?" – "+name:"")+" – "+todayKey)+"&body="+encodeURIComponent(t);
+}
+$("#sumCopy").addEventListener("click",()=>{
+  const t=summaryText(),fb=$("#sumFb");
+  const sel=()=>{const r=document.createRange();r.selectNodeContents($("#sumOut"));const s=getSelection();s.removeAllRanges();s.addRange(r);fb.textContent="Selected. Press copy on your phone.";};
+  try{navigator.clipboard.writeText(t).then(()=>{fb.textContent="Copied. 已複製"},sel)}catch(e){sel()}
+});
+$("#sumMail").addEventListener("click",()=>{renderSummary();$("#sumFb").textContent="If no email opened, press Copy results."});
+renderSummary();
+})();
+</script>
+</body>
+</html>
